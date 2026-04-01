@@ -35,6 +35,7 @@ export {
     "analyzeDegenerations",
     "groupInitialModules",
     "saveDegeneration",
+    "specialSubfan",
     -- Methods:
     "Mode",
     "VectorBundle",
@@ -329,12 +330,27 @@ generateHomogeneousModule( Ring, List, ZZ, List) := opts ->(S,shifts, l, d) -> (
     for i from 0 to #sh-1 do(
         M = M|{for j from 0 to l-1 list random(d + sh_i,S)};
     );););
+    if opts#Mode === "matrix" then( return matrix M);
     M= map(S^sh, S^D, matrix M);
-    if opts#Mode === "module" then(
+    if opts#Mode === "image" then(
     M= image M ;);
+    if opts#Mode === "coker" then(
+    M= coker M ;);
     return M
 );
 
+generateHomogeneousModule( Matrix, List) := opts ->(M, d) -> (
+    S := ring M;
+    l := numgens source M;
+    D :=splice{l:-d};
+    sh := apply(entries M, m -> degree m_0 - d);
+    M= map(S^sh, S^D, M);
+    if opts#Mode === "image" then(
+    M= image M ;);
+    if opts#Mode === "coker" then(
+    M= coker M ;);
+    return M
+);
 
 
 
@@ -456,7 +472,7 @@ analyzeDegenerations = (B)->(
     A#discrepancy = rank linealitySpace( B#fan);
     if member( isTorsionFree, keys B#modules_0) then(
     A#byCardinality = { "total:",   #B#modules, "vectorbundles:", #B#vectorBundles ," reflexives:", #B#reflexives ,"torsion free:", #B#torsionFree,"equivariants:", #B#equivariants, "equivariant vector bundles:", #B#equivb };
-    A#raysProperties = { "vectorbundles:", raysProperty(B#vectorBundles), " reflexives:", raysProperty(B#reflexives), "torsion free:", raysProperty(B#torsionFree),  "equivariant vector bundles:", raysProperty(B#equivb), "equivariants:", raysProperty(B#equivariants), "not equivariants:", raysProperty(B#notEquivariants) };
+    --A#raysProperties = { "vectorbundles:", raysProperty(B#vectorBundles), " reflexives:", raysProperty(B#reflexives), "torsion free:", raysProperty(B#torsionFree),  "equivariant vector bundles:", raysProperty(B#equivb), "equivariants:", raysProperty(B#equivariants), "not equivariants:", raysProperty(B#notEquivariants) };
     A#byCones = {"total:", byCones(B#modules ), "vectorbundles:", byCones(B#vectorBundles),  "equivariants:", byCones(B#equivariants), "equivariant vector bundles:", byCones(B#equivb) };)
     else(
     A#byCardinality = { "total:",   #B#modules, "equivariants:", #B#equivariants };
@@ -465,6 +481,20 @@ analyzeDegenerations = (B)->(
     );
     return A;
 )
+
+
+-- vectorBundlesSubfan = (LA)->(    cones := apply(LA#vectorBundles, p -> p#coneId);    F := fan(rays LA#fan, linealitySpace LA#fan, cones); return F;)
+
+
+
+specialSubfan = (F, LAM)->(
+    lin := linealitySpace F;
+    cones := apply(LAM, p -> p#coneId);
+    G := fan( apply(LAM, p -> coneFromVData( p#cone | lin |(-1)*lin))); 
+    return G;
+)
+
+
 
 
 -- L=infoInitialModules(M) removind the fan L_0 and grouping by fitting ideals at index i
