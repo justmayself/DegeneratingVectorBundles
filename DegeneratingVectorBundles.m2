@@ -56,7 +56,8 @@ export {
     "vectorBundles",
     "modules",
     "discrepancy",
-    "equivariants"
+    "equivariants",
+    "notVectorBundles"
 }
 
 exportFrom("Polyhedra","maxCones")
@@ -436,12 +437,12 @@ listDegenerations = (L)->(
     A#modulesList = apply(A#modules, p -> p#module); 
     if member( isTorsionFree, keys A#modules_0) then(
     if member( isVectorBundle, keys A#modules_0) then(
-    A#vectorBundles = select( A#modules, p -> p#isVectorBundle =!= false and p#isVectorBundle =!= "no info");)
+    A#vectorBundles = select( A#modules, p -> p#isVectorBundle =!= false and p#isVectorBundle =!= "no info"););
     A#notVectorBundles = select( A#modules, p -> p#isVectorBundle === false);)
     else( A#vectorBundles ={};);
     A#torsionFree = select( A#modules, p -> p#isTorsionFree == true);
     A#reflexives= select( A#modules, p -> p#isReflexive == true);
-    A#equivb = select( A#modules, p -> p#isEquivariant == true and p#isVectorBundle =!= false););
+    A#equivb = select( A#modules, p -> p#isEquivariant == true and p#isVectorBundle =!= false);
     A#equivariants = select( A#modules, p -> p#isEquivariant == true);
     A#notEquivariants = select( A#modules, p -> p#isEquivariant == false);
     return A;
