@@ -343,7 +343,8 @@ generateHomogeneousModule( Matrix, List) := opts ->(M, d) -> (
     S := ring M;
     l := numgens source M;
     D :=splice{l:-d};
-    sh := apply(entries M, m -> degree m_0 - d);
+    aux :=apply(entries M, m -> select(m, i -> i != 0 ));
+    sh := apply(aux, m -> degree m_0 - d);
     M= map(S^sh, S^D, M);
     if opts#Mode === "image" then(
     M= image M ;);
