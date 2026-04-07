@@ -36,6 +36,7 @@ export {
     "groupInitialModules",
     "saveDegeneration",
     "specialSubfan",
+    "byDimension",
     -- Methods:
     "Mode",
     "VectorBundle",
@@ -49,14 +50,16 @@ export {
     "fittingIdeals",
     "doubleDual",
     "coneId",
+    "coneDim",
     "reflexives",
     "equivb",
     "isTorsionFree",
     "raysProperties",
     "modulesList",
     "vectorBundles",
-    "modules",
-    "discrepancy",
+    "modulesOnly",
+    "rankLinSpace",
+    "correct",
     "equivariants",
     "notVectorBundles"
 }
@@ -375,7 +378,7 @@ infoInitialModules(Module, Fan, Ideal) := opts ->(M,F,I)-> (
     r := isVectorBundle(coker gens M,I, Mode => opts#Mode);
     -- Obtains a list of hash tables with the cone point and module
     for i from dim(source linealitySpace(F)) to dim(F) do(
-        lr:= apply(cones(i,F), c -> (H:= new MutableHashTable; H#cone = rs_c; H#coneId =c ;H));
+        lr:= apply(cones(i,F), c -> (H:= new MutableHashTable; H#cone = rs_c; H#coneId =c ;H#coneDim = i ;H));
         Lh = join(Lh, apply(lr, h -> (h#intPoint = latticeInteriorPoint( polyhedron posHull(h#cone));
         h#module = initialModule(M, take(h#intPoint,{0,n-1}), take(h#intPoint,{n,n+m-1}) ,Correction => opts#Correction) ;
         h#quotient = (coker gens h#module) ;  h)));
@@ -414,7 +417,7 @@ infoInitialModules(Module, Fan) := opts ->(M,F)-> (
     rs:= rays F;
     -- Obtains a list of hash tables with the cone point and module
     for i from dim(source linealitySpace(F)) to dim(F) do(
-        lr:= apply(cones(i,F), c -> (H:= new MutableHashTable; H#cone= rs_c; H#coneId =c ;H));
+        lr:= apply(cones(i,F), c -> (H:= new MutableHashTable; H#cone= rs_c; H#coneId =c;H#coneDim = i ;H));
         Lh = join(Lh, apply(lr, h -> (h#intPoint = latticeInteriorPoint( polyhedron posHull(h#cone)); h#module = initialModule(M, take(h#intPoint,{0,n-1}), take(h#intPoint,{n,n+m-1}) ,Correction => opts#Correction) ; h#quotient = (coker gens h#module) ;  h)));
     );
     Lh = apply (Lh, h->(h#doubleDual = reflexify(h#quotient, ReturnMap => true);h));    
@@ -429,6 +432,8 @@ infoInitialModules(Module, Fan) := opts ->(M,F)-> (
 -- Analyze the list of initial modules
 -- Auxiliary function to display the information by cones of the same dimension
 byCones = (LL)->(tally (apply(LL, p -> #(p#coneId)) ) )
+
+byDimension = (LL)->(tally (apply(LL, p -> p#coneDim) ) )
 
 -- Takes the list of hash tables LL and the fan F and checks whether the property is hereditary on the faces of a cone
 -- that is, it checks if the cones where are property holds can form a subfan 
@@ -450,18 +455,18 @@ raysProperty = (LL)->(
 listDegenerations = (L)->(
     A := new MutableHashTable;
     A#fan = L_0;
-    A#modules = delete(L_0,L);
-    A#modulesList = apply(A#modules, p -> p#module); 
-    if member( isTorsionFree, keys A#modules_0) then(
-    if member( isVectorBundle, keys A#modules_0) then(
-    A#vectorBundles = select( A#modules, p -> p#isVectorBundle =!= false and p#isVectorBundle =!= "no info"););
-    A#notVectorBundles = select( A#modules, p -> p#isVectorBundle === false);)
+    A#modulesOnly = delete(L_0,L);
+    A#modulesList = apply(A#modulesOnly, p -> p#module); 
+    if member( isTorsionFree, keys A#modulesOnly_0) then(
+    if member( isVectorBundle, keys A#modulesOnly_0) then(
+    A#vectorBundles = select( A#modulesOnly, p -> p#isVectorBundle =!= false and p#isVectorBundle =!= "no info"););
+    A#notVectorBundles = select( A#modulesOnly, p -> p#isVectorBundle === false);)
     else( A#vectorBundles ={};);
-    A#torsionFree = select( A#modules, p -> p#isTorsionFree == true);
-    A#reflexives= select( A#modules, p -> p#isReflexive == true);
-    A#equivb = select( A#modules, p -> p#isEquivariant == true and p#isVectorBundle =!= false);
-    A#equivariants = select( A#modules, p -> p#isEquivariant == true);
-    A#notEquivariants = select( A#modules, p -> p#isEquivariant == false);
+    A#torsionFree = select( A#modulesOnly, p -> p#isTorsionFree == true);
+    A#reflexives= select( A#modulesOnly, p -> p#isReflexive == true);
+    A#equivb = select( A#modulesOnly, p -> p#isEquivariant == true and p#isVectorBundle =!= false);
+    A#equivariants = select( A#modulesOnly, p -> p#isEquivariant == true);
+    A#notEquivariants = select( A#modulesOnly, p -> p#isEquivariant == false);
     return A;
 )
 
@@ -470,14 +475,16 @@ listDegenerations = (L)->(
 -- Takes the output of listDegenerations and checks that the code is working properly and gives a summary of properties
 analyzeDegenerations = (B)->(
     A := new MutableHashTable;
-    A#discrepancy = rank linealitySpace( B#fan);
-    if member( isTorsionFree, keys B#modules_0) then(
-    A#byCardinality = { "total:",   #B#modules, "vectorbundles:", #B#vectorBundles ," reflexives:", #B#reflexives ,"torsion free:", #B#torsionFree,"equivariants:", #B#equivariants, "equivariant vector bundles:", #B#equivb };
-    --A#raysProperties = { "vectorbundles:", raysProperty(B#vectorBundles), " reflexives:", raysProperty(B#reflexives), "torsion free:", raysProperty(B#torsionFree),  "equivariant vector bundles:", raysProperty(B#equivb), "equivariants:", raysProperty(B#equivariants), "not equivariants:", raysProperty(B#notEquivariants) };
-    A#byCones = {"total:", byCones(B#modules ), "vectorbundles:", byCones(B#vectorBundles),  "equivariants:", byCones(B#equivariants), "equivariant vector bundles:", byCones(B#equivb) };)
+    A#rankLinSpace = rank linealitySpace( B#fan);
+    A#correct = (#B#modulesOnly == # unique( B#modulesList));
+    if member( isTorsionFree, keys B#modulesOnly_0) then(
+    A#byCardinality = { "total:",   #B#modulesOnly, "vectorbundles:", #B#vectorBundles ," reflexives:", #B#reflexives ,"torsion free:", #B#torsionFree,"equivariants:", #B#equivariants, "equivariant vector bundles:", #B#equivb };
+    A#byCones = {"total:", byCones(B#modulesOnly ), "vectorbundles:", byCones(B#vectorBundles), " reflexives:", byCones(B#reflexives) ,"torsion free:", byCones(B#torsionFree), "equivariants:", byCones(B#equivariants), "equivariant vector bundles:", byCones(B#equivb) };
+    A#byDimension = {"total:", byDimension(B#modulesOnly ), "vectorbundles:", byDimension(B#vectorBundles), " reflexives:", byDimension(B#reflexives) ,"torsion free:", byDimension(B#torsionFree), "equivariants:", byDimension(B#equivariants), "equivariant vector bundles:", byDimension(B#equivb) };)
     else(
-    A#byCardinality = { "total:",   #B#modules, "equivariants:", #B#equivariants };
-    A#byCones = { "total:", byCones(B#modules ), "equivariants:", byCones(B#equivariants) };
+    A#byCardinality = { "total:",   #B#modulesOnly, "equivariants:", #B#equivariants };
+    A#byCones = { "total:", byCones(B#modulesOnly ), "equivariants:", byCones(B#equivariants) };
+    A#byDimension = { "total:", byDimension(B#modulesOnly ), "equivariants:", byDimension(B#equivariants) };
     A#raysProperties = { "equivariants:", raysProperty(B#equivariants), "not equivariants:", raysProperty(B#notEquivariants) }
     );
     return A;
@@ -602,7 +609,7 @@ doc ///
 	The output is a fan in the sense of the Polyhedra package.
       Example
         R=QQ[x,y];
-	M=image generateHomogeneousMatrix(2,3,2,2);
+	M=image generateHomogeneousModule(R,{{3},{2}},2,{3});
 	F=grobnerFan M;
 	rays F
 	maxCones F
@@ -777,12 +784,14 @@ doc ///
   Key
     generateHomogeneousModule
     (generateHomogeneousModule, Ring, List, ZZ, List)
+    (generateHomogeneousModule, Matrix, List)
     [generateHomogeneousModule, Mode]
     [generateHomogeneousModule, Random]
   Headline
     generates a homogeneous module with given shifts and degree
   Usage
     M = generateHomogeneousModule(S, shifts, l, d)
+    M = generateHomogeneousModule(M,d)
   Inputs
     S:Ring
       graded ring
@@ -792,8 +801,10 @@ doc ///
       number of rows of the matrix
     d:List
       degree
+    M:Matrix
+      the entries of the matrix are homogeneous polynomials 
     Mode => String
-      specifies if the output is a "module" or a "matrix"
+      specifies if the output is a "matrix" or a "image" or "coker" of said matrix
     Random => ZZ
       bounds the support of the polynomials: 0 gives the random (usually full) support, and n gives a random support of size n
   Outputs
