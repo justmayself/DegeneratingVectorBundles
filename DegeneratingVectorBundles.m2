@@ -25,7 +25,7 @@ export {
     "infoInitialModules","byCones","raysProperty","listDegenerations","analyzeDegenerations",
     "groupInitialModules","saveDegeneration","specialSubfan","byDimension",
     -- Methods:
-    "Mode","VectorBundle","Random","Correction","TimeSpent"
+    "Mode","VectorBundle","Random","Correction","TimeSpent",
     -- Hash Table Keys
     "intPoint","byCardinality","torsionFree","notEquivariants","fittingIdeals",
     "doubleDual","coneId","coneDim","reflexives","equivb",
