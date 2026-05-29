@@ -20,48 +20,17 @@ newPackage(
         )
 				
 export {
-    "moduleToIdeal",
-    "grobnerFan",
-    "initialModule",
-    "isEquivariant",
-    "latticeInteriorPoint",
-    "allFittingIdeals",
-    "isVectorBundle",
-    "generateHomogeneousModule",
-    "infoInitialModules",
-    "byCones",
-    "raysProperty",
-    "listDegenerations",
-    "analyzeDegenerations",
-    "groupInitialModules",
-    "saveDegeneration",
-    "specialSubfan",
-    "byDimension",
+    "fakeFan", "moduleToIdeal","grobnerFan","initialModule","isEquivariant",
+    "latticeInteriorPoint", "correctionVector","allFittingIdeals","isVectorBundle","generateHomogeneousModule",
+    "infoInitialModules","byCones","raysProperty","listDegenerations","analyzeDegenerations",
+    "groupInitialModules","saveDegeneration","specialSubfan","byDimension",
     -- Methods:
-    "Mode",
-    "VectorBundle",
-    "Random",
-    "Correction",
+    "Mode","VectorBundle","Random","Correction","TimeSpent"
     -- Hash Table Keys
-    "intPoint",
-    "byCardinality",
-    "torsionFree",
-    "notEquivariants",
-    "fittingIdeals",
-    "doubleDual",
-    "coneId",
-    "coneDim",
-    "reflexives",
-    "equivb",
-    "isTorsionFree",
-    "raysProperties",
-    "modulesList",
-    "vectorBundles",
-    "modulesOnly",
-    "rankLinSpace",
-    "correct",
-    "equivariants",
-    "notVectorBundles"
+    "intPoint","byCardinality","torsionFree","notEquivariants","fittingIdeals",
+    "doubleDual","coneId","coneDim","reflexives","equivb",
+    "isTorsionFree","raysProperties","modulesList","vectorBundles","modulesOnly",
+    "rankLinSpace","correct","equivariants","notVectorBundles"
 }
 
 exportFrom("Polyhedra","maxCones")
@@ -171,11 +140,28 @@ grobnerFan = M ->(
 );
 
 
+correctionVector = method( Options => { Mode => "none"  });
+
+correctionVector(Matrix) := opts -> (A) ->(
+	Q := intersect(coneFromVData(A|(-1*A)) , posOrthant rank target A) ;
+	p := latticeInteriorPoint Q;
+	if max(p) <= 0 then return {} else return p;
+)
+
+correctionVector (Module) := opts -> (M) ->(
+      A := matrix degrees ring (moduleToIdeal M);
+      use ring M;
+correctionVector(A)
+)
+
+
+correctionVector (Fan) := opts -> (F) ->(
+correctionVector(linSpace F))
 
 
 --compute in_{w,s}(M)
 --We'll assume that M is homogeneous with respect to standard grading
-initialModule = method(Options => {Correction =>{}});
+initialModule = method(Options => {Correction =>{}, TimeSpent => 30});
 
 initialModule (Module, List, List):= opts -> (M,w,s)->(
     n:=numgens ring M;
@@ -187,28 +173,19 @@ initialModule (Module, List, List):= opts -> (M,w,s)->(
     gensSI := gens SI;
     newW := apply(w,i->-i) | apply(s,i->-i);
     maxWS:=max(w|s);
-    if opts#Correction === {} then(
-      vec := apply( degs, n-> sum n);
-      vec =  vec +(1- min(vec))*splice{n:0, m:1}; 
-      if min(vec) <0 and min(newW) < 0 then error "The computation is not feasible. Give a correction vector, please";
-      newW = newW + splice{n+m: maxWS };
-      if maxWS < 0 then(newW = newW  + maxWS*vec;)
-      else(
-      -- Check if the all ones vector is in the lineality space of the Grobner fan of M and if it is not we compute a new weight vector  
-      if matrix splice{n+m:{1}} %  matrix degs != 0 then(
-          newW = newW + splice{n+m:-maxWS } + maxWS*vec;   
-      ););
-    )
-    else(
-      newW = newW + (maxWS+1)*opts#Correction;
-
-    );
-
+    vec := opts#Correction;
+    if vec === {} then(
+      vec = correctionVector(M) ; );
+    newW = newW + (maxWS+1)*vec;
     degsS:=apply(n,i->({1,0})) | apply(m,i->({0,1}));
     newS := KI[gensSI,Weights=>newW,Degrees=>degsS];
     newI:=sub(I,newS);
-    inI:= leadTerm(1,newI); 
-    linearGens:= select(flatten entries gens inI,f->((degree(f))_1 ==1));
+    inI := ideal (1_newS); 
+    try(
+    alarm max(30, opts#TimeSpent); -- max time that will be spent computing the lead terms in seconds
+    inI = leadTerm(1,newI); 
+    alarm 0; 
+    ) then(linearGens:= select(flatten entries gens inI,f->((degree(f))_1 ==1));
     moduleGens:=apply(linearGens, g->(
 	    C:=coefficients g;
 	    apply(m,j->(
@@ -216,8 +193,12 @@ initialModule (Module, List, List):= opts -> (M,w,s)->(
 		    sum(p,l->(sub((flatten entries (C_0))_l,SI_(n+j)=>1)*(flatten entries (C_1))_l))
 	    ))
     ));
-    image mingens image map(ambient M, , transpose sub(matrix moduleGens,ring M))
-)
+    return image mingens image map(ambient M, , transpose sub(matrix moduleGens,ring M)))
+    else(
+	return image matrix{ {0_(ring M)}});
+    )
+    
+
 
 
 
@@ -355,8 +336,6 @@ generateHomogeneousModule( Matrix, List) := opts ->(M, d) -> (
     M= coker M ;);
     return M
 );
-
-
 
 
 
@@ -502,6 +481,15 @@ specialSubfan = (F, LAM)->(
     return G;
 )
 
+fakeFan= (M) ->(
+    use ring(M);
+    lg := flatten entries gens moduleToIdeal M;
+    p := newtonPolytope(lg_0);
+    for i from 1 to (length lg -1) do(
+        p = p + newtonPolytope(lg_i);
+        );
+    return  normalFan(p);
+    )
 
 
 
